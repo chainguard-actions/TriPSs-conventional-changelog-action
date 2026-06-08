@@ -1,4 +1,4 @@
-name: Test pre-changelog-generation script input
+name: Test skip-on-empty behavior
 on:
   workflow_dispatch:
 jobs:
@@ -12,18 +12,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure git and create pre-changelog-generation script
+      - name: Configure git
         run: |
           git config user.name "Test User"
           git config user.email "test@example.com"
-          # Create a pre-changelog-generation script
-          cat > pre-changelog-generation.js << 'EOF'
-          // Pre-changelog-generation script
-          console.log('Pre-changelog-generation script executed');
-          EOF
-          echo "test-$(date +%s)" > test-file4.txt
-          git add test-file4.txt
-          git commit -m "feat: add test file for pre-changelog-generation test"
 
       - id: action
         uses: .
@@ -31,14 +23,14 @@ jobs:
           github-token: ${{ github.token }}
           git-push: "false"
           skip-git-pull: "true"
+          skip-on-empty: "true"
           skip-tag: "true"
           skip-commit: "true"
           skip-version-file: "true"
-          pre-changelog-generation: "pre-changelog-generation.js"
-          fallback-version: "1.0.0"
           tag-prefix: "v"
+          fallback-version: "1.0.0"
 
-      - name: Assert action ran without error
+      - name: Assert skipped output is set
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |
@@ -47,4 +39,4 @@ jobs:
             echo "FAIL: expected skipped to be 'true' or 'false', got '$SKIPPED'"
             exit 1
           fi
-          echo "PASS: action completed with skipped='$SKIPPED'"
+          echo "PASS: skipped output is set to '$SKIPPED'"

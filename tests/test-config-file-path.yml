@@ -12,45 +12,45 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup git config
+      - name: Configure git and create conventional changelog config
         run: |
-          git config user.email "test@example.com"
           git config user.name "Test User"
-
-      - name: Create conventional changelog config file
-        run: |
-          cat > /tmp/changelog-config.js << 'EOF'
+          git config user.email "test@example.com"
+          # Create a conventional changelog config file
+          cat > changelog-config.js << 'EOF'
           'use strict';
           module.exports = {
             writerOpts: {
               groupBy: 'type',
               commitGroupsSort: 'title',
-              commitsSort: ['scope', 'subject'],
+              commitsSort: ['scope', 'subject']
             }
           };
           EOF
+          echo "test-$(date +%s)" > test-file5.txt
+          git add test-file5.txt
+          git commit -m "feat: add test file for config-file-path test"
 
       - id: action
         uses: .
         with:
           github-token: ${{ github.token }}
-          fallback-version: "1.0.0"
-          config-file-path: /tmp/changelog-config.js
-          skip-on-empty: "false"
-          skip-git-pull: "true"
-          skip-commit: "true"
-          skip-tag: "true"
-          skip-version-file: "true"
           git-push: "false"
-          output-file: "false"
+          skip-git-pull: "true"
+          skip-tag: "true"
+          skip-commit: "true"
+          skip-version-file: "true"
+          config-file-path: "changelog-config.js"
+          fallback-version: "1.0.0"
+          tag-prefix: "v"
 
-      - name: Assert skipped output is set
+      - name: Assert action ran without error
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |
           echo "skipped: $SKIPPED"
-          if [ -z "$SKIPPED" ]; then
-            echo "FAIL: expected skipped output to be set"
+          if [ "$SKIPPED" != "true" ] && [ "$SKIPPED" != "false" ]; then
+            echo "FAIL: expected skipped to be 'true' or 'false', got '$SKIPPED'"
             exit 1
           fi
-          echo "PASS: skipped output is '$SKIPPED'"
+          echo "PASS: action completed with skipped='$SKIPPED'"

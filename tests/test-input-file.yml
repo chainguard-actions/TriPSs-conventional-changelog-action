@@ -1,4 +1,4 @@
-name: Test pre-changelog-generation script input
+name: Test input-file input
 on:
   workflow_dispatch:
 jobs:
@@ -12,18 +12,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure git and create pre-changelog-generation script
+      - name: Configure git and create existing changelog
         run: |
           git config user.name "Test User"
           git config user.email "test@example.com"
-          # Create a pre-changelog-generation script
-          cat > pre-changelog-generation.js << 'EOF'
-          // Pre-changelog-generation script
-          console.log('Pre-changelog-generation script executed');
+          # Create an existing changelog file
+          cat > EXISTING_CHANGELOG.md << 'EOF'
+          # Changelog
+
+          ## [1.0.0] - 2024-01-01
+
+          ### Features
+          - Initial release
           EOF
-          echo "test-$(date +%s)" > test-file4.txt
-          git add test-file4.txt
-          git commit -m "feat: add test file for pre-changelog-generation test"
+          echo "test-$(date +%s)" > test-file2.txt
+          git add test-file2.txt
+          git commit -m "feat: add test file for input-file test"
 
       - id: action
         uses: .
@@ -34,7 +38,8 @@ jobs:
           skip-tag: "true"
           skip-commit: "true"
           skip-version-file: "true"
-          pre-changelog-generation: "pre-changelog-generation.js"
+          input-file: "EXISTING_CHANGELOG.md"
+          output-file: "CHANGELOG_OUT.md"
           fallback-version: "1.0.0"
           tag-prefix: "v"
 

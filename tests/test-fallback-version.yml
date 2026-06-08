@@ -1,4 +1,4 @@
-name: Test fallback-version and input-file inputs
+name: Test fallback-version input
 on:
   workflow_dispatch:
 jobs:
@@ -12,54 +12,40 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup git config
+      - name: Configure git and create a conventional commit
         run: |
-          git config user.email "test@example.com"
           git config user.name "Test User"
-
-      - name: Create input changelog file
-        run: |
-          echo "# Previous Changelog" > /tmp/input-changelog.md
-          echo "Some old content" >> /tmp/input-changelog.md
+          git config user.email "test@example.com"
+          # Create a feat commit so the action has something to release
+          echo "test-$(date +%s)" > test-file.txt
+          git add test-file.txt
+          git commit -m "feat: add test file for fallback version test"
 
       - id: action
         uses: .
         with:
           github-token: ${{ github.token }}
-          fallback-version: "1.0.0"
-          input-file: /tmp/input-changelog.md
-          skip-on-empty: "false"
-          skip-git-pull: "true"
-          skip-commit: "true"
-          skip-tag: "true"
-          skip-version-file: "true"
           git-push: "false"
-          output-file: "false"
+          skip-git-pull: "true"
+          skip-tag: "true"
+          skip-commit: "true"
+          skip-version-file: "true"
+          fallback-version: "2.0.0"
+          tag-prefix: "v"
 
-      - name: Assert skipped output is set
-        env:
-          SKIPPED: ${{ steps.action.outputs.skipped }}
-        run: |
-          echo "skipped: $SKIPPED"
-          if [ -z "$SKIPPED" ]; then
-            echo "FAIL: expected skipped output to be set"
-            exit 1
-          fi
-          echo "PASS: skipped output is '$SKIPPED'"
-
-      - name: Assert version output is set when not skipped
+      - name: Assert outputs are set
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
           VERSION: ${{ steps.action.outputs.version }}
         run: |
           echo "skipped: $SKIPPED"
           echo "version: $VERSION"
-          if [ "$SKIPPED" = "false" ]; then
+          if [ "$SKIPPED" = "true" ]; then
+            echo "PASS: action was skipped (no releasable commits found)"
+          else
             if [ -z "$VERSION" ]; then
-              echo "FAIL: expected version output to be set when not skipped"
+              echo "FAIL: version output is empty when not skipped"
               exit 1
             fi
-            echo "PASS: version is '$VERSION'"
-          else
-            echo "PASS: action was skipped (no conventional commits found)"
+            echo "PASS: version output is '$VERSION'"
           fi

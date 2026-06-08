@@ -1,4 +1,4 @@
-name: Test pre-commit input
+name: Test pre-commit script input
 on:
   workflow_dispatch:
 jobs:
@@ -12,39 +12,39 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup git config
+      - name: Configure git and create pre-commit script
         run: |
-          git config user.email "test@example.com"
           git config user.name "Test User"
-
-      - name: Create pre-commit script
-        run: |
-          cat > /tmp/pre-commit.js << 'EOF'
+          git config user.email "test@example.com"
+          # Create a pre-commit script
+          cat > pre-commit.js << 'EOF'
           // Pre-commit script - runs before the release commit
           console.log('Pre-commit script executed');
           EOF
+          echo "test-$(date +%s)" > test-file3.txt
+          git add test-file3.txt
+          git commit -m "feat: add test file for pre-commit test"
 
       - id: action
         uses: .
         with:
           github-token: ${{ github.token }}
-          fallback-version: "1.0.0"
-          pre-commit: /tmp/pre-commit.js
-          skip-on-empty: "false"
-          skip-git-pull: "true"
-          skip-commit: "true"
-          skip-tag: "true"
-          skip-version-file: "true"
           git-push: "false"
-          output-file: "false"
+          skip-git-pull: "true"
+          skip-tag: "true"
+          skip-commit: "true"
+          skip-version-file: "true"
+          pre-commit: "pre-commit.js"
+          fallback-version: "1.0.0"
+          tag-prefix: "v"
 
-      - name: Assert skipped output is set
+      - name: Assert action ran without error
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |
           echo "skipped: $SKIPPED"
-          if [ -z "$SKIPPED" ]; then
-            echo "FAIL: expected skipped output to be set"
+          if [ "$SKIPPED" != "true" ] && [ "$SKIPPED" != "false" ]; then
+            echo "FAIL: expected skipped to be 'true' or 'false', got '$SKIPPED'"
             exit 1
           fi
-          echo "PASS: skipped output is '$SKIPPED'"
+          echo "PASS: action completed with skipped='$SKIPPED'"
