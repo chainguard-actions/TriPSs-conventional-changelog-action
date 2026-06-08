@@ -9,6 +9,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 | Version | Tag | Upstream commit |
 |---------|-----|-----------------|
 | v6.0.0 | [`v6.0.0`](https://github.com/chainguard-actions/TriPSs-conventional-changelog-action/tree/v6.0.0) | [`6713919`](https://github.com/TriPSs/conventional-changelog-action/commit/67139193614f5b9e8db87da1bd4240922b34d765) |
+| v6.1.0 | [`v6.1.0`](https://github.com/chainguard-actions/TriPSs-conventional-changelog-action/tree/v6.1.0) | [`5f00b89`](https://github.com/TriPSs/conventional-changelog-action/commit/5f00b899ccbbcbc112bd6d715d5e76e7a9e4501d) |
 
 ## Privacy
 
