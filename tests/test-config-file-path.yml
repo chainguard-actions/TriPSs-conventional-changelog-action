@@ -1,0 +1,59 @@
+name: Test config-file-path input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+
+      - name: Create conventional changelog config file
+        run: |
+          cat > changelog-config.js << 'EOF'
+          'use strict';
+          module.exports = {
+            writerOpts: {
+              groupBy: 'type',
+              commitGroupsSort: 'title',
+              commitsSort: ['scope', 'subject']
+            }
+          };
+          EOF
+
+      - name: Create a conventional commit
+        run: |
+          git commit --allow-empty -m "feat: add new feature for config-file-path test"
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          git-push: "false"
+          skip-git-pull: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          skip-on-empty: "false"
+          fallback-version: "1.0.0"
+          config-file-path: "changelog-config.js"
+          output-file: "CHANGELOG-config.md"
+
+      - name: Assert skipped output is set
+        env:
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+        run: |
+          echo "skipped: $SKIPPED"
+          if [ -z "$SKIPPED" ]; then
+            echo "FAIL: skipped output should not be empty"
+            exit 1
+          fi
+          echo "PASS: skipped output is '$SKIPPED'"
