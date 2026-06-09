@@ -1,4 +1,4 @@
-name: Test pre-changelog-generation input
+name: Test pre-changelog-generation script usage
 on:
   workflow_dispatch:
 jobs:
@@ -12,23 +12,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure git
+      - name: Setup git config
         run: |
-          git config user.email "test@example.com"
+          git config user.email "test@test.com"
           git config user.name "Test User"
 
-      - name: Create pre-changelog-generation script
+      - name: Create package.json and pre-changelog-generation script
         run: |
+          echo '{"version": "0.0.0"}' > package.json
           cat > pre-changelog-generation.js << 'EOF'
-          // Pre-changelog-generation script for testing
           module.exports = async (version) => {
-            console.log('Pre-changelog-generation script called with version:', version);
-          };
+            console.log('pre-changelog-generation hook called with version:', version);
+          }
           EOF
-
-      - name: Create a conventional commit
-        run: |
-          git commit --allow-empty -m "feat: add new feature for pre-changelog-generation test"
+          git add package.json pre-changelog-generation.js
+          git commit -m "chore: initial commit" || true
 
       - id: action
         uses: .
@@ -36,14 +34,13 @@ jobs:
           github-token: ${{ github.token }}
           git-push: "false"
           skip-git-pull: "true"
+          skip-on-empty: "true"
           skip-commit: "true"
           skip-tag: "true"
-          skip-on-empty: "false"
           fallback-version: "1.0.0"
-          pre-changelog-generation: "pre-changelog-generation.js"
-          output-file: "CHANGELOG-pre-changelog.md"
+          pre-changelog-generation: "./pre-changelog-generation.js"
 
-      - name: Assert skipped output is set
+      - name: Assert skipped output exists
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |

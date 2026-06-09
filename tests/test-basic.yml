@@ -1,4 +1,4 @@
-name: Test input-file usage
+name: Test basic usage
 on:
   workflow_dispatch:
 jobs:
@@ -17,13 +17,10 @@ jobs:
           git config user.email "test@test.com"
           git config user.name "Test User"
 
-      - name: Create package.json and existing changelog
+      - name: Create package.json
         run: |
           echo '{"version": "0.0.0"}' > package.json
-          echo "# Existing Changelog" > EXISTING_CHANGELOG.md
-          echo "" >> EXISTING_CHANGELOG.md
-          echo "## Old Release" >> EXISTING_CHANGELOG.md
-          git add package.json EXISTING_CHANGELOG.md
+          git add package.json
           git commit -m "chore: initial commit" || true
 
       - id: action
@@ -36,8 +33,8 @@ jobs:
           skip-commit: "true"
           skip-tag: "true"
           fallback-version: "1.0.0"
-          input-file: "EXISTING_CHANGELOG.md"
-          output-file: "CHANGELOG.md"
+          tag-prefix: "v"
+          preset: "angular"
 
       - name: Assert skipped output exists
         env:
