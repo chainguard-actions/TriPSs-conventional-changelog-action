@@ -1,0 +1,54 @@
+name: Test with config-file-path
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup git config
+        run: |
+          git config user.email "test@test.com"
+          git config user.name "Test User"
+
+      - name: Create conventional changelog config file
+        run: |
+          cat > /tmp/changelog-config.js << 'EOF'
+          'use strict';
+          module.exports = {
+            writerOpts: {
+              groupBy: 'type',
+              commitGroupsSort: 'title',
+              commitsSort: ['scope', 'subject']
+            }
+          };
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          git-push: "false"
+          skip-git-pull: "true"
+          skip-on-empty: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          fallback-version: "1.0.0"
+          config-file-path: "/tmp/changelog-config.js"
+
+      - name: Assert skipped output exists
+        env:
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+        run: |
+          echo "skipped: $SKIPPED"
+          if [ -z "$SKIPPED" ]; then
+            echo "FAIL: expected skipped output to be set"
+            exit 1
+          fi
+          echo "PASS: skipped output is set to '$SKIPPED'"
