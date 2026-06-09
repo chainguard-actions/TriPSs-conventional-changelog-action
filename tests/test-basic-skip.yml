@@ -1,4 +1,4 @@
-name: Test input-file input
+name: Test basic skip on empty
 on:
   workflow_dispatch:
 jobs:
@@ -17,13 +17,6 @@ jobs:
           git config user.email "test@example.com"
           git config user.name "Test User"
 
-      - name: Create input changelog file
-        run: |
-          echo "# Previous Changelog" > /tmp/EXISTING_CHANGELOG.md
-          echo "" >> /tmp/EXISTING_CHANGELOG.md
-          echo "## v0.9.0" >> /tmp/EXISTING_CHANGELOG.md
-          echo "- Previous release notes" >> /tmp/EXISTING_CHANGELOG.md
-
       - id: action
         uses: .
         with:
@@ -33,13 +26,12 @@ jobs:
           skip-on-empty: "true"
           skip-commit: "true"
           skip-tag: "true"
-          input-file: "/tmp/EXISTING_CHANGELOG.md"
-          output-file: "CHANGELOG.md"
-          fallback-version: "1.0.0"
           tag-prefix: "v"
           preset: "angular"
+          output-file: "CHANGELOG.md"
+          fallback-version: "1.0.0"
 
-      - name: Assert action completed
+      - name: Assert skipped output is set
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |
@@ -48,4 +40,4 @@ jobs:
             echo "FAIL: expected skipped to be 'true' or 'false', got '$SKIPPED'"
             exit 1
           fi
-          echo "PASS"
+          echo "PASS: skipped output is set to '$SKIPPED'"

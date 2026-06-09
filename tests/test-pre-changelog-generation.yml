@@ -1,4 +1,4 @@
-name: Test with pre-changelog-generation script
+name: Test pre-changelog-generation script input
 on:
   workflow_dispatch:
 jobs:
@@ -12,17 +12,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup git config
+      - name: Setup git
         run: |
-          git config user.email "test@test.com"
+          git config user.email "test@example.com"
           git config user.name "Test User"
 
       - name: Create pre-changelog-generation script
         run: |
           cat > /tmp/pre-changelog-generation.js << 'EOF'
-          // pre-changelog-generation script
-          module.exports = async (version) => {
-            console.log('pre-changelog-generation called with version:', version);
+          module.exports = async (gitSemver) => {
+            console.log('Pre-changelog-generation hook called');
           };
           EOF
 
@@ -35,16 +34,19 @@ jobs:
           skip-on-empty: "true"
           skip-commit: "true"
           skip-tag: "true"
-          fallback-version: "1.0.0"
           pre-changelog-generation: "/tmp/pre-changelog-generation.js"
+          fallback-version: "1.0.0"
+          tag-prefix: "v"
+          preset: "angular"
+          output-file: "CHANGELOG.md"
 
-      - name: Assert skipped output exists
+      - name: Assert action completed
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |
           echo "skipped: $SKIPPED"
-          if [ -z "$SKIPPED" ]; then
-            echo "FAIL: expected skipped output to be set"
+          if [ "$SKIPPED" != "true" ] && [ "$SKIPPED" != "false" ]; then
+            echo "FAIL: expected skipped to be 'true' or 'false', got '$SKIPPED'"
             exit 1
           fi
-          echo "PASS: skipped output is set to '$SKIPPED'"
+          echo "PASS"
