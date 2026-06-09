@@ -1,0 +1,60 @@
+name: Test fallback-version input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup git config
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+
+      - name: Create package.json
+        run: |
+          echo '{"version": "0.0.0"}' > package.json
+          git add package.json
+          git commit -m "feat: initial commit" --allow-empty
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          git-push: "false"
+          skip-commit: "true"
+          skip-tag: "true"
+          skip-on-empty: "false"
+          fallback-version: "1.0.0"
+          version-file: "./package.json"
+          output-file: "CHANGELOG.md"
+
+      - name: Assert skipped output is set
+        env:
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+        run: |
+          echo "skipped: $SKIPPED"
+          if [ -z "$SKIPPED" ]; then
+            echo "FAIL: skipped output should not be empty"
+            exit 1
+          fi
+          echo "PASS: skipped=$SKIPPED"
+
+      - name: Assert version output is set when not skipped
+        env:
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+          VERSION: ${{ steps.action.outputs.version }}
+        run: |
+          echo "skipped: $SKIPPED"
+          echo "version: $VERSION"
+          if [ "$SKIPPED" = "false" ] && [ -z "$VERSION" ]; then
+            echo "FAIL: version should be set when not skipped"
+            exit 1
+          fi
+          echo "PASS"

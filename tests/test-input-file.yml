@@ -1,0 +1,51 @@
+name: Test input-file input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup git config
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+
+      - name: Create package.json and existing changelog
+        run: |
+          echo '{"version": "0.0.0"}' > package.json
+          echo "# Existing Changelog" > EXISTING_CHANGELOG.md
+          echo "" >> EXISTING_CHANGELOG.md
+          echo "## Old Release" >> EXISTING_CHANGELOG.md
+          git add package.json EXISTING_CHANGELOG.md
+          git commit -m "feat: initial setup" --allow-empty
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          git-push: "false"
+          skip-commit: "true"
+          skip-tag: "true"
+          skip-on-empty: "false"
+          fallback-version: "1.0.0"
+          input-file: "./EXISTING_CHANGELOG.md"
+          output-file: "CHANGELOG.md"
+          version-file: "./package.json"
+
+      - name: Assert skipped output is set
+        env:
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+        run: |
+          echo "skipped: $SKIPPED"
+          if [ -z "$SKIPPED" ]; then
+            echo "FAIL: skipped output should not be empty"
+            exit 1
+          fi
+          echo "PASS: skipped=$SKIPPED"
