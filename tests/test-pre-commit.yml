@@ -1,4 +1,4 @@
-name: Test pre-commit input
+name: Test pre-commit script usage
 on:
   workflow_dispatch:
 jobs:
@@ -14,41 +14,33 @@ jobs:
 
       - name: Setup git config
         run: |
-          git config user.email "test@example.com"
+          git config user.email "test@test.com"
           git config user.name "Test User"
 
-      - name: Create package.json and pre-commit script
+      - name: Create package.json
         run: |
           echo '{"version": "0.0.0"}' > package.json
-          cat > pre-commit.js << 'EOF'
-          // pre-commit script - no-op for testing
-          module.exports = async (tag, exec) => {
-            console.log('pre-commit hook called with tag:', tag);
-          };
-          EOF
-          git add package.json pre-commit.js
-          git commit -m "feat: initial setup with pre-commit script" --allow-empty
+          git add package.json
+          git commit -m "feat: initial commit"
 
       - id: action
         uses: .
         with:
           github-token: ${{ github.token }}
           git-push: "false"
-          skip-commit: "true"
-          skip-tag: "true"
+          skip-git-pull: "true"
           skip-on-empty: "false"
           fallback-version: "1.0.0"
-          pre-commit: "./pre-commit.js"
-          version-file: "./package.json"
-          output-file: "CHANGELOG.md"
+          pre-commit: "${{ github.workspace }}/actions/hardened/TriPSs--conventional-changelog-action/v6.3.0/tests/fixtures/pre-commit.js"
+          tag-prefix: "v"
 
-      - name: Assert skipped output is set
+      - name: Assert skipped output exists
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |
           echo "skipped: $SKIPPED"
           if [ -z "$SKIPPED" ]; then
-            echo "FAIL: skipped output should not be empty"
+            echo "FAIL: expected skipped output to be set"
             exit 1
           fi
           echo "PASS: skipped=$SKIPPED"

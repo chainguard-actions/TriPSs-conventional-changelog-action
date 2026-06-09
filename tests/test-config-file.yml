@@ -1,4 +1,4 @@
-name: Test input-file usage
+name: Test config-file-path usage
 on:
   workflow_dispatch:
 jobs:
@@ -17,13 +17,10 @@ jobs:
           git config user.email "test@test.com"
           git config user.name "Test User"
 
-      - name: Create package.json and existing changelog
+      - name: Create package.json
         run: |
           echo '{"version": "0.0.0"}' > package.json
-          echo "# Existing Changelog" > EXISTING_CHANGELOG.md
-          echo "" >> EXISTING_CHANGELOG.md
-          echo "## Old Release" >> EXISTING_CHANGELOG.md
-          git add package.json EXISTING_CHANGELOG.md
+          git add package.json
           git commit -m "feat: initial commit"
 
       - id: action
@@ -34,8 +31,7 @@ jobs:
           skip-git-pull: "true"
           skip-on-empty: "false"
           fallback-version: "1.0.0"
-          input-file: "EXISTING_CHANGELOG.md"
-          output-file: "CHANGELOG.md"
+          config-file-path: "${{ github.workspace }}/actions/hardened/TriPSs--conventional-changelog-action/v6.3.0/tests/fixtures/changelog-config.js"
           tag-prefix: "v"
 
       - name: Assert skipped output exists
