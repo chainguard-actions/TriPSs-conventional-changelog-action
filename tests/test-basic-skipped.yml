@@ -1,4 +1,4 @@
-name: Test config-file-path input
+name: Test basic usage - skipped when no conventional commits
 on:
   workflow_dispatch:
 jobs:
@@ -17,21 +17,11 @@ jobs:
           git config user.email "test@example.com"
           git config user.name "Test User"
 
-      - name: Create package.json and conventional changelog config
+      - name: Create a package.json with initial version
         run: |
           echo '{"version": "1.0.0"}' > package.json
-          cat > changelog-config.js << 'EOF'
-          'use strict';
-          module.exports = {
-            writerOpts: {
-              groupBy: 'type',
-              commitGroupsSort: 'title',
-              commitsSort: ['scope', 'subject'],
-            }
-          };
-          EOF
-          git add package.json changelog-config.js
-          git commit -m "chore: setup with custom config" || true
+          git add package.json
+          git commit -m "chore: initial setup" || true
 
       - id: action
         uses: .
@@ -39,15 +29,18 @@ jobs:
           github-token: ${{ github.token }}
           git-push: "false"
           skip-git-pull: "true"
+          skip-on-empty: "true"
           skip-commit: "true"
           skip-tag: "true"
-          skip-on-empty: "true"
-          config-file-path: "changelog-config.js"
           fallback-version: "1.0.0"
 
-      - name: Assert action completed with config-file-path input
+      - name: Assert skipped output is set
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |
           echo "skipped: $SKIPPED"
-          echo "PASS: action completed with config-file-path input"
+          if [ "$SKIPPED" != "true" ]; then
+            echo "FAIL: expected skipped to be 'true' when no conventional commits found"
+            exit 1
+          fi
+          echo "PASS"

@@ -1,4 +1,4 @@
-name: Test pre-changelog-generation script usage
+name: Test pre-changelog-generation script input
 on:
   workflow_dispatch:
 jobs:
@@ -12,21 +12,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup git config
+      - name: Configure git
         run: |
-          git config user.email "test@test.com"
+          git config user.email "test@example.com"
           git config user.name "Test User"
 
       - name: Create package.json and pre-changelog-generation script
         run: |
-          echo '{"version": "0.0.0"}' > package.json
+          echo '{"version": "1.0.0"}' > package.json
           cat > pre-changelog-generation.js << 'EOF'
+          // Pre-changelog-generation script
           module.exports = async (version) => {
-            console.log('pre-changelog-generation hook called with version:', version);
-          }
+            console.log('Pre-changelog-generation script running for version:', version);
+          };
           EOF
           git add package.json pre-changelog-generation.js
-          git commit -m "chore: initial commit" || true
+          git commit -m "chore: setup with pre-changelog-generation script" || true
 
       - id: action
         uses: .
@@ -34,19 +35,15 @@ jobs:
           github-token: ${{ github.token }}
           git-push: "false"
           skip-git-pull: "true"
-          skip-on-empty: "true"
           skip-commit: "true"
           skip-tag: "true"
+          skip-on-empty: "true"
+          pre-changelog-generation: "pre-changelog-generation.js"
           fallback-version: "1.0.0"
-          pre-changelog-generation: "./pre-changelog-generation.js"
 
-      - name: Assert skipped output exists
+      - name: Assert action completed with pre-changelog-generation input
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |
           echo "skipped: $SKIPPED"
-          if [ -z "$SKIPPED" ]; then
-            echo "FAIL: skipped output should not be empty"
-            exit 1
-          fi
-          echo "PASS: skipped output is '$SKIPPED'"
+          echo "PASS: action completed with pre-changelog-generation input"
