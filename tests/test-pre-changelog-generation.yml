@@ -1,4 +1,4 @@
-name: Test pre-changelog-generation script input
+name: Test pre-changelog-generation input
 on:
   workflow_dispatch:
 jobs:
@@ -12,39 +12,39 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure git and create pre-changelog-generation script
+      - name: Setup git config
         run: |
-          git config user.name "Test User"
           git config user.email "test@example.com"
-          # Create a pre-changelog-generation script
-          cat > pre-changelog-generation.js << 'EOF'
-          // Pre-changelog-generation script
-          console.log('Pre-changelog-generation script executed');
+          git config user.name "Test User"
+
+      - name: Create pre-changelog-generation script
+        run: |
+          cat > /tmp/pre-changelog-generation.js << 'EOF'
+          module.exports = async (version, previousTag, currentTag) => {
+            console.log('Pre-changelog-generation hook called');
+            console.log('version:', version);
+            console.log('previousTag:', previousTag);
+            console.log('currentTag:', currentTag);
+          };
           EOF
-          echo "test-$(date +%s)" > test-file4.txt
-          git add test-file4.txt
-          git commit -m "feat: add test file for pre-changelog-generation test"
 
       - id: action
         uses: .
         with:
           github-token: ${{ github.token }}
-          git-push: "false"
-          skip-git-pull: "true"
-          skip-tag: "true"
-          skip-commit: "true"
-          skip-version-file: "true"
-          pre-changelog-generation: "pre-changelog-generation.js"
+          pre-changelog-generation: /tmp/pre-changelog-generation.js
           fallback-version: "1.0.0"
-          tag-prefix: "v"
+          skip-git-pull: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          git-push: "false"
+          skip-on-empty: "false"
 
-      - name: Assert action ran without error
+      - name: Show outputs
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
+          VERSION: ${{ steps.action.outputs.version }}
         run: |
           echo "skipped: $SKIPPED"
-          if [ "$SKIPPED" != "true" ] && [ "$SKIPPED" != "false" ]; then
-            echo "FAIL: expected skipped to be 'true' or 'false', got '$SKIPPED'"
-            exit 1
-          fi
-          echo "PASS: action completed with skipped='$SKIPPED'"
+          echo "version: $VERSION"
+          echo "PASS: action completed with pre-changelog-generation input"

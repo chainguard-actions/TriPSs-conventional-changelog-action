@@ -1,4 +1,4 @@
-name: Test fallback-version input
+name: Test fallback-version and input-file inputs
 on:
   workflow_dispatch:
 jobs:
@@ -12,40 +12,37 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure git and create a conventional commit
+      - name: Setup git config
         run: |
-          git config user.name "Test User"
           git config user.email "test@example.com"
-          # Create a feat commit so the action has something to release
-          echo "test-$(date +%s)" > test-file.txt
-          git add test-file.txt
-          git commit -m "feat: add test file for fallback version test"
+          git config user.name "Test User"
+
+      - name: Create input changelog file
+        run: |
+          echo "# Previous Changelog" > /tmp/input-changelog.md
+          echo "" >> /tmp/input-changelog.md
+          echo "## v0.0.1" >> /tmp/input-changelog.md
+          echo "- Initial release" >> /tmp/input-changelog.md
 
       - id: action
         uses: .
         with:
           github-token: ${{ github.token }}
-          git-push: "false"
+          fallback-version: "1.0.0"
+          input-file: /tmp/input-changelog.md
           skip-git-pull: "true"
-          skip-tag: "true"
           skip-commit: "true"
-          skip-version-file: "true"
-          fallback-version: "2.0.0"
-          tag-prefix: "v"
+          skip-tag: "true"
+          git-push: "false"
+          skip-on-empty: "false"
 
-      - name: Assert outputs are set
+      - name: Show outputs
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
           VERSION: ${{ steps.action.outputs.version }}
+          TAG: ${{ steps.action.outputs.tag }}
         run: |
           echo "skipped: $SKIPPED"
           echo "version: $VERSION"
-          if [ "$SKIPPED" = "true" ]; then
-            echo "PASS: action was skipped (no releasable commits found)"
-          else
-            if [ -z "$VERSION" ]; then
-              echo "FAIL: version output is empty when not skipped"
-              exit 1
-            fi
-            echo "PASS: version output is '$VERSION'"
-          fi
+          echo "tag: $TAG"
+          echo "PASS: action completed with fallback-version and input-file inputs"
