@@ -1,4 +1,4 @@
-name: Test basic usage
+name: Test fallback-version and input-file inputs
 on:
   workflow_dispatch:
 jobs:
@@ -17,6 +17,12 @@ jobs:
           git config user.email "test@example.com"
           git config user.name "Test User"
 
+      - name: Create input changelog file
+        run: |
+          echo "# Previous Changelog" > /tmp/EXISTING_CHANGELOG.md
+          echo "" >> /tmp/EXISTING_CHANGELOG.md
+          echo "## Old release notes" >> /tmp/EXISTING_CHANGELOG.md
+
       - id: action
         uses: .
         with:
@@ -26,25 +32,13 @@ jobs:
           skip-commit: "true"
           skip-tag: "true"
           skip-on-empty: "false"
-          fallback-version: "1.0.0"
+          fallback-version: "2.0.0"
+          input-file: "/tmp/EXISTING_CHANGELOG.md"
+          output-file: "CHANGELOG.md"
           tag-prefix: "v"
           preset: "angular"
-          output-file: "CHANGELOG.md"
-          release-count: "5"
-          version-file: "./package.json"
           skip-version-file: "true"
           skip-ci: "false"
-          create-summary: "false"
-
-      - name: Show outputs
-        env:
-          SKIPPED: ${{ steps.action.outputs.skipped }}
-          VERSION: ${{ steps.action.outputs.version }}
-          TAG: ${{ steps.action.outputs.tag }}
-        run: |
-          echo "skipped: $SKIPPED"
-          echo "version: $VERSION"
-          echo "tag: $TAG"
 
       - name: Assert skipped output is set
         env:
@@ -53,6 +47,19 @@ jobs:
           echo "skipped: $SKIPPED"
           if [ -z "$SKIPPED" ]; then
             echo "FAIL: expected skipped output to be set"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert version output is set when not skipped
+        env:
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+          VERSION: ${{ steps.action.outputs.version }}
+        run: |
+          echo "skipped: $SKIPPED"
+          echo "version: $VERSION"
+          if [ "$SKIPPED" = "false" ] && [ -z "$VERSION" ]; then
+            echo "FAIL: expected version output to be set when not skipped"
             exit 1
           fi
           echo "PASS"

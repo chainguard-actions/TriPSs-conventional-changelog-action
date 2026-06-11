@@ -1,0 +1,76 @@
+name: Test pre-commit, pre-changelog-generation, and config-file-path inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+
+      - name: Create pre-commit script
+        run: |
+          cat > /tmp/pre-commit.js << 'EOF'
+          module.exports = async (tag, exec) => {
+            console.log('pre-commit hook called with tag:', tag);
+          };
+          EOF
+
+      - name: Create pre-changelog-generation script
+        run: |
+          cat > /tmp/pre-changelog-generation.js << 'EOF'
+          module.exports = async (version, previousTag, currentTag) => {
+            console.log('pre-changelog-generation called with version:', version);
+          };
+          EOF
+
+      - name: Create conventional changelog config file
+        run: |
+          cat > /tmp/changelog-config.js << 'EOF'
+          'use strict';
+          module.exports = {
+            writerOpts: {
+              groupBy: 'type',
+              commitGroupsSort: 'title',
+              commitsSort: ['scope', 'subject'],
+            }
+          };
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          git-push: "false"
+          skip-git-pull: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          skip-on-empty: "false"
+          fallback-version: "1.0.0"
+          pre-commit: "/tmp/pre-commit.js"
+          pre-changelog-generation: "/tmp/pre-changelog-generation.js"
+          config-file-path: "/tmp/changelog-config.js"
+          output-file: "CHANGELOG.md"
+          tag-prefix: "v"
+          skip-version-file: "true"
+          skip-ci: "false"
+
+      - name: Assert skipped output is set
+        env:
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+        run: |
+          echo "skipped: $SKIPPED"
+          if [ -z "$SKIPPED" ]; then
+            echo "FAIL: expected skipped output to be set"
+            exit 1
+          fi
+          echo "PASS"
