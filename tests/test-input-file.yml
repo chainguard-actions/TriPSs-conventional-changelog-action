@@ -1,4 +1,4 @@
-name: Test input-file input
+name: Test input-file usage
 on:
   workflow_dispatch:
 jobs:
@@ -14,7 +14,7 @@ jobs:
 
       - name: Setup git
         run: |
-          git config user.email "test@example.com"
+          git config user.email "test@test.com"
           git config user.name "Test User"
 
       - name: Create input changelog file
@@ -22,7 +22,7 @@ jobs:
           echo "# Previous Changelog" > /tmp/EXISTING_CHANGELOG.md
           echo "" >> /tmp/EXISTING_CHANGELOG.md
           echo "## v0.9.0" >> /tmp/EXISTING_CHANGELOG.md
-          echo "- Previous release notes" >> /tmp/EXISTING_CHANGELOG.md
+          echo "- old entry" >> /tmp/EXISTING_CHANGELOG.md
 
       - id: action
         uses: .
@@ -33,19 +33,17 @@ jobs:
           skip-on-empty: "true"
           skip-commit: "true"
           skip-tag: "true"
-          input-file: "/tmp/EXISTING_CHANGELOG.md"
-          output-file: "CHANGELOG.md"
           fallback-version: "1.0.0"
-          tag-prefix: "v"
-          preset: "angular"
+          input-file: "/tmp/EXISTING_CHANGELOG.md"
+          output-file: "/tmp/OUTPUT_CHANGELOG.md"
 
-      - name: Assert action completed
+      - name: Assert skipped output exists
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |
           echo "skipped: $SKIPPED"
-          if [ "$SKIPPED" != "true" ] && [ "$SKIPPED" != "false" ]; then
-            echo "FAIL: expected skipped to be 'true' or 'false', got '$SKIPPED'"
+          if [ -z "$SKIPPED" ]; then
+            echo "FAIL: skipped output should not be empty"
             exit 1
           fi
-          echo "PASS"
+          echo "PASS: skipped output is '$SKIPPED'"

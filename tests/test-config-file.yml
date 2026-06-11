@@ -1,4 +1,4 @@
-name: Test with config-file-path
+name: Test config-file-path usage
 on:
   workflow_dispatch:
 jobs:
@@ -12,7 +12,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup git config
+      - name: Setup git
         run: |
           git config user.email "test@test.com"
           git config user.name "Test User"
@@ -20,14 +20,14 @@ jobs:
       - name: Create conventional changelog config file
         run: |
           cat > /tmp/changelog-config.js << 'EOF'
-          'use strict';
+          'use strict'
           module.exports = {
             writerOpts: {
               groupBy: 'type',
               commitGroupsSort: 'title',
               commitsSort: ['scope', 'subject']
             }
-          };
+          }
           EOF
 
       - id: action
@@ -48,7 +48,7 @@ jobs:
         run: |
           echo "skipped: $SKIPPED"
           if [ -z "$SKIPPED" ]; then
-            echo "FAIL: expected skipped output to be set"
+            echo "FAIL: skipped output should not be empty"
             exit 1
           fi
-          echo "PASS: skipped output is set to '$SKIPPED'"
+          echo "PASS: skipped output is '$SKIPPED'"

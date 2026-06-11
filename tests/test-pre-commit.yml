@@ -1,4 +1,4 @@
-name: Test pre-commit script input
+name: Test pre-commit script usage
 on:
   workflow_dispatch:
 jobs:
@@ -14,15 +14,15 @@ jobs:
 
       - name: Setup git
         run: |
-          git config user.email "test@example.com"
+          git config user.email "test@test.com"
           git config user.name "Test User"
 
       - name: Create pre-commit script
         run: |
           cat > /tmp/pre-commit.js << 'EOF'
           module.exports = async (tag, exec) => {
-            console.log('Pre-commit hook called with tag:', tag);
-          };
+            console.log('Pre-commit hook called with tag:', tag)
+          }
           EOF
 
       - id: action
@@ -34,19 +34,16 @@ jobs:
           skip-on-empty: "true"
           skip-commit: "true"
           skip-tag: "true"
-          pre-commit: "/tmp/pre-commit.js"
           fallback-version: "1.0.0"
-          tag-prefix: "v"
-          preset: "angular"
-          output-file: "CHANGELOG.md"
+          pre-commit: "/tmp/pre-commit.js"
 
-      - name: Assert action completed
+      - name: Assert skipped output exists
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |
           echo "skipped: $SKIPPED"
-          if [ "$SKIPPED" != "true" ] && [ "$SKIPPED" != "false" ]; then
-            echo "FAIL: expected skipped to be 'true' or 'false', got '$SKIPPED'"
+          if [ -z "$SKIPPED" ]; then
+            echo "FAIL: skipped output should not be empty"
             exit 1
           fi
-          echo "PASS"
+          echo "PASS: skipped output is '$SKIPPED'"

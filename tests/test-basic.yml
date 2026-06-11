@@ -1,4 +1,4 @@
-name: Test basic usage with fallback-version
+name: Test basic usage - skip on empty
 on:
   workflow_dispatch:
 jobs:
@@ -12,7 +12,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup git config
+      - name: Setup git
         run: |
           git config user.email "test@test.com"
           git config user.name "Test User"
@@ -36,7 +36,7 @@ jobs:
         run: |
           echo "skipped: $SKIPPED"
           if [ -z "$SKIPPED" ]; then
-            echo "FAIL: expected skipped output to be set"
+            echo "FAIL: skipped output should not be empty"
             exit 1
           fi
-          echo "PASS: skipped output is set to '$SKIPPED'"
+          echo "PASS: skipped output is '$SKIPPED'"
