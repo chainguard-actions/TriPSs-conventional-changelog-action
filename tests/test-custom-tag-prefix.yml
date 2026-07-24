@@ -1,0 +1,76 @@
+name: Test custom tag prefix
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git remote reachable inside Docker
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git push "$GITHUB_WORKSPACE/.git-remote" --tags
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - id: action
+        uses: .
+        with:
+          git-push: "false"
+          skip-git-pull: "true"
+          skip-on-empty: "false"
+          skip-version-file: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          output-file: "false"
+          fallback-version: "2.0.0"
+          tag-prefix: "release-"
+
+      - name: Assert tag starts with custom prefix
+        env:
+          TAG: ${{ steps.action.outputs.tag }}
+        run: |
+          echo "tag: $TAG"
+          if [ -z "$TAG" ]; then
+            echo "FAIL: expected tag to be set but got empty string"
+            exit 1
+          fi
+          case "$TAG" in
+            release-*)
+              echo "PASS: tag '$TAG' starts with 'release-' prefix"
+              ;;
+            *)
+              echo "FAIL: expected tag to start with 'release-' but got '$TAG'"
+              exit 1
+              ;;
+          esac
+
+      - name: Assert version does not contain prefix
+        env:
+          VERSION: ${{ steps.action.outputs.version }}
+          TAG: ${{ steps.action.outputs.tag }}
+        run: |
+          echo "version: $VERSION"
+          echo "tag: $TAG"
+          if [ -z "$VERSION" ]; then
+            echo "FAIL: expected version to be set"
+            exit 1
+          fi
+          # Version should not contain the prefix
+          case "$VERSION" in
+            release-*)
+              echo "FAIL: version '$VERSION' should not contain the prefix"
+              exit 1
+              ;;
+            *)
+              echo "PASS: version '$VERSION' does not contain the prefix"
+              ;;
+          esac

@@ -1,0 +1,58 @@
+name: Test input-file input (prepend to existing changelog)
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git remote reachable inside Docker
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git push "$GITHUB_WORKSPACE/.git-remote" --tags
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - name: Create an existing changelog file to use as input
+        run: |
+          cat > "$GITHUB_WORKSPACE/EXISTING_CHANGELOG.md" << 'EOF'
+          # Changelog
+
+          ## [1.0.0] - 2023-01-01
+
+          ### Features
+
+          * initial release
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          git-push: "false"
+          skip-git-pull: "true"
+          skip-on-empty: "false"
+          skip-version-file: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          output-file: "false"
+          fallback-version: "1.0.0"
+          input-file: "./EXISTING_CHANGELOG.md"
+
+      - name: Assert action completed (skipped output is set)
+        env:
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+        run: |
+          echo "skipped: $SKIPPED"
+          if [ -z "$SKIPPED" ]; then
+            echo "FAIL: expected skipped output to be set (true or false)"
+            exit 1
+          fi
+          echo "PASS: action completed with input-file, skipped=$SKIPPED"

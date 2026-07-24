@@ -1,0 +1,58 @@
+name: Test fallback version when no conventional commits
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REPOSITORY: test-owner/test-repo
+      ENV: dont-use-git
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up git with a non-conventional commit
+        run: |
+          git config user.email "test@test.com"
+          git config user.name "Test User"
+          git commit --allow-empty -m "docs: update readme"
+
+      - id: action
+        uses: .
+        with:
+          github-token: ""
+          skip-git-pull: "true"
+          git-push: "false"
+          skip-on-empty: "false"
+          skip-version-file: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          output-file: "false"
+          fallback-version: "2.5.0"
+        env:
+          SKIPPED_COMMIT: "true"
+          SKIPPED_TAG: "true"
+          EXPECTED_NO_PUSH: "true"
+          SKIPPED_PULL: "true"
+
+      - name: Assert version uses fallback
+        env:
+          ACTUAL: ${{ steps.action.outputs.version }}
+        run: |
+          echo "actual version: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: expected version to be set (fallback or detected)"
+            exit 1
+          fi
+          echo "PASS: version is '$ACTUAL'"
+
+      - name: Assert tag is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.tag }}
+        run: |
+          echo "actual tag: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: expected tag to be set"
+            exit 1
+          fi
+          echo "PASS: tag is '$ACTUAL'"

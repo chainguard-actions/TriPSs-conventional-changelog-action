@@ -1,0 +1,95 @@
+name: Test changelog generation with conventional commit
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REPOSITORY: test-owner/test-repo
+      ENV: dont-use-git
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up git with a conventional feat commit
+        run: |
+          git config user.email "test@test.com"
+          git config user.name "Test User"
+          git commit --allow-empty -m "feat: add awesome new feature"
+
+      - name: Create version file
+        run: |
+          echo '{"name":"test","version":"1.0.0"}' > /tmp/test-version.json
+
+      - id: action
+        uses: .
+        with:
+          github-token: ""
+          skip-git-pull: "true"
+          git-push: "false"
+          skip-on-empty: "false"
+          skip-version-file: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          output-file: "false"
+          fallback-version: "1.0.0"
+        env:
+          SKIPPED_COMMIT: "true"
+          SKIPPED_TAG: "true"
+          EXPECTED_NO_PUSH: "true"
+          SKIPPED_PULL: "true"
+
+      - name: Assert skipped output is false
+        env:
+          ACTUAL: ${{ steps.action.outputs.skipped }}
+        run: |
+          echo "actual skipped: $ACTUAL"
+          if [ "$ACTUAL" != "false" ]; then
+            echo "FAIL: expected skipped='false' but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: action was not skipped"
+
+      - name: Assert version output is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.version }}
+        run: |
+          echo "actual version: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: expected version to be set but got empty string"
+            exit 1
+          fi
+          echo "PASS: version is set to '$ACTUAL'"
+
+      - name: Assert tag output is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.tag }}
+        run: |
+          echo "actual tag: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: expected tag to be set but got empty string"
+            exit 1
+          fi
+          echo "PASS: tag is set to '$ACTUAL'"
+
+      - name: Assert changelog output is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.changelog }}
+        run: |
+          echo "actual changelog: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: expected changelog to be non-empty"
+            exit 1
+          fi
+          echo "PASS: changelog is set"
+
+      - name: Assert clean_changelog output is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.clean_changelog }}
+        run: |
+          echo "actual clean_changelog: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: expected clean_changelog to be non-empty"
+            exit 1
+          fi
+          echo "PASS: clean_changelog is set"

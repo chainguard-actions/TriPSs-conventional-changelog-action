@@ -1,0 +1,49 @@
+name: Test skip-on-empty (no conventional commits)
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git remote reachable inside Docker
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git push "$GITHUB_WORKSPACE/.git-remote" --tags
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - name: Create a package.json for version tracking
+        run: |
+          echo '{"version":"1.0.0"}' > "$GITHUB_WORKSPACE/package.json"
+
+      - id: action
+        uses: .
+        with:
+          git-push: "false"
+          skip-git-pull: "true"
+          skip-on-empty: "true"
+          skip-version-file: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          output-file: "false"
+          fallback-version: "1.0.0"
+
+      - name: Assert skipped is true
+        env:
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+        run: |
+          echo "skipped: $SKIPPED"
+          if [ "$SKIPPED" != "true" ]; then
+            echo "FAIL: expected skipped='true' but got '$SKIPPED'"
+            exit 1
+          fi
+          echo "PASS: action was correctly skipped when no conventional commits found"
