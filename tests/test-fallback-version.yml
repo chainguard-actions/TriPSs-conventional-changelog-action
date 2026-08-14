@@ -1,48 +1,85 @@
-name: Test fallback-version input
+name: Test fallback-version output
 on:
   workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_REF: refs/heads/main
-      GITHUB_EVENT_NAME: push
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
 
-      - name: Configure git
+      - name: Set up git config
         run: |
           git config user.email "test@example.com"
           git config user.name "Test User"
 
-      - name: Create a package.json
+      - name: Set up a git origin reachable inside the action
         run: |
-          echo '{"version": "0.0.0"}' > package.json
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git push "$GITHUB_WORKSPACE/.git-remote" --tags
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - name: Create a package.json for version bumping
+        run: |
+          echo '{"version": "0.0.0"}' > "$GITHUB_WORKSPACE/package.json"
+
+      - name: Add a conventional commit so changelog is not empty
+        run: |
           git add package.json
-          git commit -m "feat: add initial feature" || true
+          git commit -m "feat: add initial feature for testing"
+
+      - name: Push commit to local bare remote
+        run: |
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
 
       - id: action
         uses: .
         with:
           github-token: ${{ github.token }}
           git-push: "false"
+          skip-on-empty: "false"
           skip-git-pull: "true"
           skip-commit: "true"
           skip-tag: "true"
-          skip-on-empty: "false"
-          fallback-version: "2.0.0"
+          fallback-version: "1.0.0"
+          tag-prefix: "v"
+          version-file: "./package.json"
+          version-path: "version"
+          output-file: "false"
 
-      - name: Assert action ran (skipped or produced version)
+      - name: Assert version output is set
         env:
-          SKIPPED: ${{ steps.action.outputs.skipped }}
           VERSION: ${{ steps.action.outputs.version }}
         run: |
-          echo "skipped: $SKIPPED"
           echo "version: $VERSION"
-          if [ "$SKIPPED" != "true" ] && [ -z "$VERSION" ]; then
-            echo "FAIL: expected either skipped=true or a version output"
+          if [ -z "$VERSION" ]; then
+            echo "FAIL: expected version output to be set"
             exit 1
           fi
-          echo "PASS"
+          echo "PASS: version output is '$VERSION'"
+
+      - name: Assert tag output is set
+        env:
+          TAG: ${{ steps.action.outputs.tag }}
+        run: |
+          echo "tag: $TAG"
+          if [ -z "$TAG" ]; then
+            echo "FAIL: expected tag output to be set"
+            exit 1
+          fi
+          echo "PASS: tag output is '$TAG'"
+
+      - name: Assert skipped is false
+        env:
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+        run: |
+          echo "skipped: $SKIPPED"
+          if [ "$SKIPPED" = "true" ]; then
+            echo "FAIL: expected action NOT to be skipped"
+            exit 1
+          fi
+          echo "PASS: action was not skipped"

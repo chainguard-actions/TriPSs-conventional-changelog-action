@@ -1,49 +1,80 @@
-name: Test pre-commit script input
+name: Test pre-commit input
 on:
   workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_REF: refs/heads/main
-      GITHUB_EVENT_NAME: push
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
 
-      - name: Configure git
+      - name: Set up git config
         run: |
           git config user.email "test@example.com"
           git config user.name "Test User"
 
-      - name: Create package.json and pre-commit script
+      - name: Set up a git origin reachable inside the action
         run: |
-          echo '{"version": "1.0.0"}' > package.json
-          cat > pre-commit.js << 'EOF'
-          // Pre-commit script - runs before the release commit
-          module.exports = async (tag, exec) => {
-            console.log('Pre-commit script running for tag:', tag);
-          };
-          EOF
-          git add package.json pre-commit.js
-          git commit -m "chore: setup with pre-commit script" || true
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git push "$GITHUB_WORKSPACE/.git-remote" --tags
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - name: Create a package.json for version bumping
+        run: |
+          echo '{"version": "0.0.0"}' > "$GITHUB_WORKSPACE/package.json"
+          git add package.json
+          git commit -m "feat: add feature for pre-commit test"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
 
       - id: action
         uses: .
         with:
           github-token: ${{ github.token }}
           git-push: "false"
+          skip-on-empty: "false"
           skip-git-pull: "true"
           skip-commit: "true"
           skip-tag: "true"
-          skip-on-empty: "true"
-          pre-commit: "pre-commit.js"
           fallback-version: "1.0.0"
+          tag-prefix: "v"
+          version-file: "./package.json"
+          version-path: "version"
+          output-file: "false"
+          pre-commit: "./test-pre-commit.js"
 
-      - name: Assert action completed with pre-commit input
+      - name: Assert changelog output is not empty
+        env:
+          CHANGELOG: ${{ steps.action.outputs.changelog }}
+        run: |
+          echo "changelog: $CHANGELOG"
+          if [ -z "$CHANGELOG" ]; then
+            echo "FAIL: expected changelog output to be non-empty when using pre-commit"
+            exit 1
+          fi
+          echo "PASS: changelog is non-empty with pre-commit"
+
+      - name: Assert skipped is false
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |
           echo "skipped: $SKIPPED"
-          echo "PASS: action completed with pre-commit input"
+          if [ "$SKIPPED" = "true" ]; then
+            echo "FAIL: expected action NOT to be skipped"
+            exit 1
+          fi
+          echo "PASS: action was not skipped"
+
+      - name: Assert pre-commit script ran (pre-commit.test.json created)
+        run: |
+          echo "Checking for pre-commit.test.json..."
+          if [ ! -f "$GITHUB_WORKSPACE/pre-commit.test.json" ]; then
+            echo "FAIL: pre-commit script did not create pre-commit.test.json"
+            exit 1
+          fi
+          echo "Contents of pre-commit.test.json:"
+          cat "$GITHUB_WORKSPACE/pre-commit.test.json"
+          echo "PASS: pre-commit script ran and created pre-commit.test.json"

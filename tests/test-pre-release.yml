@@ -1,0 +1,70 @@
+name: Test pre-release version output
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git config
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+
+      - name: Set up a git origin reachable inside the action
+        run: |
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git push "$GITHUB_WORKSPACE/.git-remote" --tags
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - name: Create a package.json and add a feat commit
+        run: |
+          echo '{"version": "0.0.0"}' > "$GITHUB_WORKSPACE/package.json"
+          git add package.json
+          git commit -m "feat: add pre-release feature"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          git-push: "false"
+          skip-on-empty: "false"
+          skip-git-pull: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          fallback-version: "1.0.0"
+          tag-prefix: "v"
+          version-file: "./package.json"
+          version-path: "version"
+          output-file: "false"
+          pre-release: "true"
+          pre-release-identifier: "beta"
+
+      - name: Assert version contains pre-release identifier
+        env:
+          VERSION: ${{ steps.action.outputs.version }}
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+        run: |
+          echo "version: $VERSION"
+          echo "skipped: $SKIPPED"
+          if [ "$SKIPPED" = "true" ]; then
+            echo "FAIL: action was unexpectedly skipped"
+            exit 1
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "FAIL: expected version output to be set"
+            exit 1
+          fi
+          if echo "$VERSION" | grep -q "beta"; then
+            echo "PASS: version '$VERSION' contains pre-release identifier 'beta'"
+          else
+            echo "FAIL: expected version '$VERSION' to contain 'beta'"
+            exit 1
+          fi

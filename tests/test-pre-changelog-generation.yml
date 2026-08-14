@@ -1,49 +1,78 @@
-name: Test pre-changelog-generation script input
+name: Test pre-changelog-generation input
 on:
   workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_REF: refs/heads/main
-      GITHUB_EVENT_NAME: push
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
 
-      - name: Configure git
+      - name: Set up git config
         run: |
           git config user.email "test@example.com"
           git config user.name "Test User"
 
-      - name: Create package.json and pre-changelog-generation script
+      - name: Set up a git origin reachable inside the action
         run: |
-          echo '{"version": "1.0.0"}' > package.json
-          cat > pre-changelog-generation.js << 'EOF'
-          // Pre-changelog-generation script
-          module.exports = async (version) => {
-            console.log('Pre-changelog-generation script running for version:', version);
-          };
-          EOF
-          git add package.json pre-changelog-generation.js
-          git commit -m "chore: setup with pre-changelog-generation script" || true
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git push "$GITHUB_WORKSPACE/.git-remote" --tags
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - name: Create a package.json for version bumping
+        run: |
+          echo '{"version": "0.0.0"}' > "$GITHUB_WORKSPACE/package.json"
+          git add package.json
+          git commit -m "feat: add feature for pre-changelog-generation test"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
 
       - id: action
         uses: .
         with:
           github-token: ${{ github.token }}
           git-push: "false"
+          skip-on-empty: "false"
           skip-git-pull: "true"
           skip-commit: "true"
           skip-tag: "true"
-          skip-on-empty: "true"
-          pre-changelog-generation: "pre-changelog-generation.js"
           fallback-version: "1.0.0"
+          tag-prefix: "v"
+          version-file: "./package.json"
+          version-path: "version"
+          output-file: "false"
+          pre-changelog-generation: "./test-pre-changelog-generation.js"
 
-      - name: Assert action completed with pre-changelog-generation input
+      - name: Assert changelog output is not empty
+        env:
+          CHANGELOG: ${{ steps.action.outputs.changelog }}
+        run: |
+          echo "changelog: $CHANGELOG"
+          if [ -z "$CHANGELOG" ]; then
+            echo "FAIL: expected changelog output to be non-empty when using pre-changelog-generation"
+            exit 1
+          fi
+          echo "PASS: changelog is non-empty with pre-changelog-generation"
+
+      - name: Assert skipped is false
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |
           echo "skipped: $SKIPPED"
-          echo "PASS: action completed with pre-changelog-generation input"
+          if [ "$SKIPPED" = "true" ]; then
+            echo "FAIL: expected action NOT to be skipped"
+            exit 1
+          fi
+          echo "PASS: action was not skipped"
+
+      - name: Assert pre-changelog-generation script ran (version override file created)
+        run: |
+          echo "Checking for pre-changelog-generation.version.test.json..."
+          if [ ! -f "$GITHUB_WORKSPACE/pre-changelog-generation.version.test.json" ]; then
+            echo "FAIL: pre-changelog-generation script did not create version test file"
+            exit 1
+          fi
+          echo "PASS: pre-changelog-generation script ran and created version test file"

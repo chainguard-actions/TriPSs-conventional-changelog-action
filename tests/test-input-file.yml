@@ -4,44 +4,66 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_REF: refs/heads/main
-      GITHUB_EVENT_NAME: push
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
 
-      - name: Configure git
+      - name: Set up git config
         run: |
           git config user.email "test@example.com"
           git config user.name "Test User"
 
-      - name: Create package.json and existing changelog
+      - name: Set up a git origin reachable inside the action
         run: |
-          echo '{"version": "1.0.0"}' > package.json
-          echo "# Existing Changelog" > EXISTING_CHANGELOG.md
-          echo "" >> EXISTING_CHANGELOG.md
-          echo "## Old content" >> EXISTING_CHANGELOG.md
-          git add package.json EXISTING_CHANGELOG.md
-          git commit -m "chore: setup" || true
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git push "$GITHUB_WORKSPACE/.git-remote" --tags
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - name: Create a package.json for version bumping
+        run: |
+          echo '{"version": "0.0.0"}' > "$GITHUB_WORKSPACE/package.json"
+          git add package.json
+          git commit -m "feat: add feature for input-file test"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
 
       - id: action
         uses: .
         with:
           github-token: ${{ github.token }}
           git-push: "false"
+          skip-on-empty: "false"
           skip-git-pull: "true"
           skip-commit: "true"
           skip-tag: "true"
-          skip-on-empty: "true"
-          input-file: "EXISTING_CHANGELOG.md"
-          output-file: "CHANGELOG.md"
           fallback-version: "1.0.0"
+          tag-prefix: "v"
+          version-file: "./package.json"
+          version-path: "version"
+          output-file: "false"
+          input-file: "./test-input-file.md"
 
-      - name: Assert action completed (skipped is acceptable since no feat/fix commits)
+      - name: Assert changelog output is not empty
+        env:
+          CHANGELOG: ${{ steps.action.outputs.changelog }}
+        run: |
+          echo "changelog: $CHANGELOG"
+          if [ -z "$CHANGELOG" ]; then
+            echo "FAIL: expected changelog output to be non-empty when using input-file"
+            exit 1
+          fi
+          echo "PASS: changelog is non-empty with input-file"
+
+      - name: Assert skipped is false
         env:
           SKIPPED: ${{ steps.action.outputs.skipped }}
         run: |
           echo "skipped: $SKIPPED"
-          echo "PASS: action completed with input-file input"
+          if [ "$SKIPPED" = "true" ]; then
+            echo "FAIL: expected action NOT to be skipped"
+            exit 1
+          fi
+          echo "PASS: action was not skipped"

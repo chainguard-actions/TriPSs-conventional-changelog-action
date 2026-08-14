@@ -1,0 +1,20 @@
+name: Keep the versions up-to-date
+
+on:
+  release:
+    types: [published, edited]
+
+permissions:
+  contents: write
+
+jobs:
+  run-tag-latest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: Actions-R-Us/actions-tagger@330ddfac760021349fef7ff62b372f2f691c20fb # latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.github_token }}
+        with:
+          publish_latest_tag: 'true'
