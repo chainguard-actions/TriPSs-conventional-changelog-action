@@ -1,0 +1,68 @@
+name: Test fallback version when no previous tags exist
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git config and create a conventional commit
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          # Create a dummy file and commit it with a conventional commit message
+          echo "fallback version test" > test-fallback-file.txt
+          git add test-fallback-file.txt
+          git commit -m "fix: fix something for fallback version test"
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          git-push: "false"
+          skip-git-pull: "true"
+          skip-on-empty: "false"
+          skip-version-file: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          output-file: "false"
+          fallback-version: "2.0.0"
+          tag-prefix: "v"
+
+      - name: Assert version output is set and uses fallback as base
+        env:
+          VERSION: ${{ steps.action.outputs.version }}
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+          TAG: ${{ steps.action.outputs.tag }}
+        run: |
+          echo "skipped: $SKIPPED"
+          echo "version: $VERSION"
+          echo "tag: $TAG"
+          if [ "$SKIPPED" = "true" ]; then
+            echo "FAIL: action was skipped but a conventional commit was present"
+            exit 1
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "FAIL: expected version output to be set"
+            exit 1
+          fi
+          echo "PASS: version is set to: $VERSION"
+
+      - name: Assert tag has correct prefix
+        env:
+          TAG: ${{ steps.action.outputs.tag }}
+        run: |
+          echo "tag: $TAG"
+          if [ -z "$TAG" ]; then
+            echo "FAIL: expected tag output to be set"
+            exit 1
+          fi
+          if echo "$TAG" | grep -q "^v"; then
+            echo "PASS: tag has correct 'v' prefix: $TAG"
+          else
+            echo "FAIL: expected tag to start with 'v', got: $TAG"
+            exit 1
+          fi

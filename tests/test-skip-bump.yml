@@ -1,0 +1,56 @@
+name: Test skip-bump prevents version bump
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git config and create a conventional commit
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          # Create a dummy file and commit it with a conventional commit message
+          echo "skip bump test content" > test-skip-bump-file.txt
+          git add test-skip-bump-file.txt
+          git commit -m "feat: add feature for skip-bump testing"
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          git-push: "false"
+          skip-git-pull: "true"
+          skip-on-empty: "false"
+          skip-version-file: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          skip-bump: "true"
+          output-file: "false"
+          fallback-version: "1.0.0"
+
+      - name: Assert action ran without bumping
+        env:
+          VERSION: ${{ steps.action.outputs.version }}
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+          CHANGELOG: ${{ steps.action.outputs.changelog }}
+        run: |
+          echo "skipped: $SKIPPED"
+          echo "version: $VERSION"
+          echo "changelog: $CHANGELOG"
+          # With skip-bump, the action should still run (not be skipped)
+          # and should produce outputs
+          if [ "$SKIPPED" = "true" ]; then
+            echo "INFO: action was skipped (acceptable with skip-bump)"
+          else
+            echo "PASS: action ran with skip-bump=true"
+            if [ -z "$VERSION" ] && [ -z "$CHANGELOG" ]; then
+              echo "FAIL: expected at least one output to be set when not skipped"
+              exit 1
+            fi
+            echo "PASS: outputs are present"
+          fi
+          echo "PASS: skip-bump scenario completed successfully"

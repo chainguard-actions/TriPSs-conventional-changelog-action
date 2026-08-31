@@ -1,0 +1,58 @@
+name: Test pre-changelog-generation input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git config, pre-changelog-generation script, and a conventional commit
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          # Create a pre-changelog-generation script that writes a marker file
+          cat > pre-changelog-gen.js << 'EOF'
+          const fs = require('fs');
+          fs.writeFileSync('/tmp/pre-changelog-gen-ran.txt', 'pre-changelog-generation ran');
+          console.log('pre-changelog-generation script executed');
+          EOF
+          # Create a conventional commit so the action has something to process
+          echo "pre-changelog-generation test" > test-pre-changelog-gen.txt
+          git add test-pre-changelog-gen.txt
+          git commit -m "feat: add pre-changelog-generation test feature"
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          git-push: "false"
+          skip-git-pull: "true"
+          skip-on-empty: "false"
+          skip-version-file: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          output-file: "false"
+          fallback-version: "1.0.0"
+          pre-changelog-generation: "pre-changelog-gen.js"
+
+      - name: Assert action ran with pre-changelog-generation
+        env:
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+          VERSION: ${{ steps.action.outputs.version }}
+          CHANGELOG: ${{ steps.action.outputs.changelog }}
+        run: |
+          echo "skipped: $SKIPPED"
+          echo "version: $VERSION"
+          echo "changelog: $CHANGELOG"
+          if [ "$SKIPPED" = "true" ]; then
+            echo "FAIL: action was skipped but a conventional commit was present"
+            exit 1
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "FAIL: expected version output to be set"
+            exit 1
+          fi
+          echo "PASS: action ran with pre-changelog-generation, version=$VERSION"

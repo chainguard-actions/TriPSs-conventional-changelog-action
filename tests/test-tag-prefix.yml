@@ -1,0 +1,57 @@
+name: Test custom tag prefix
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git config and create a conventional commit
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          # Create a dummy file and commit it with a conventional commit message
+          echo "tag prefix test content" > test-tag-prefix-file.txt
+          git add test-tag-prefix-file.txt
+          git commit -m "feat: add feature for tag prefix testing"
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          git-push: "false"
+          skip-git-pull: "true"
+          skip-on-empty: "false"
+          skip-version-file: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          output-file: "false"
+          fallback-version: "1.0.0"
+          tag-prefix: "release-"
+
+      - name: Assert tag uses custom prefix
+        env:
+          TAG: ${{ steps.action.outputs.tag }}
+          VERSION: ${{ steps.action.outputs.version }}
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+        run: |
+          echo "skipped: $SKIPPED"
+          echo "version: $VERSION"
+          echo "tag: $TAG"
+          if [ "$SKIPPED" = "true" ]; then
+            echo "FAIL: action was skipped but a conventional commit was present"
+            exit 1
+          fi
+          if [ -z "$TAG" ]; then
+            echo "FAIL: expected tag output to be set"
+            exit 1
+          fi
+          if echo "$TAG" | grep -q "^release-"; then
+            echo "PASS: tag has correct 'release-' prefix: $TAG"
+          else
+            echo "FAIL: expected tag to start with 'release-', got: $TAG"
+            exit 1
+          fi

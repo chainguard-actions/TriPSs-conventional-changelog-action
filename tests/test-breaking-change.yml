@@ -1,0 +1,64 @@
+name: Test breaking change triggers major version bump
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git config and create a breaking change commit
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          # Create a commit with BREAKING CHANGE footer
+          echo "breaking change test content" > test-breaking-file.txt
+          git add test-breaking-file.txt
+          git commit -m "feat!: introduce breaking API change
+
+          BREAKING CHANGE: this changes the public API"
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          git-push: "false"
+          skip-git-pull: "true"
+          skip-on-empty: "false"
+          skip-version-file: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          output-file: "false"
+          fallback-version: "1.0.0"
+          tag-prefix: "v"
+
+      - name: Assert breaking change produces major version bump
+        env:
+          VERSION: ${{ steps.action.outputs.version }}
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+          CHANGELOG: ${{ steps.action.outputs.changelog }}
+          TAG: ${{ steps.action.outputs.tag }}
+        run: |
+          echo "skipped: $SKIPPED"
+          echo "version: $VERSION"
+          echo "tag: $TAG"
+          echo "changelog: $CHANGELOG"
+          if [ "$SKIPPED" = "true" ]; then
+            echo "FAIL: action was skipped but a breaking change commit was present"
+            exit 1
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "FAIL: expected version output to be set"
+            exit 1
+          fi
+          # With fallback-version 1.0.0 and a breaking change, version should be 2.0.0
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          echo "major version: $MAJOR"
+          if [ "$MAJOR" -ge 2 ]; then
+            echo "PASS: major version bumped to $VERSION (major=$MAJOR)"
+          else
+            echo "FAIL: expected major version >= 2 for breaking change, got: $VERSION"
+            exit 1
+          fi

@@ -1,0 +1,63 @@
+name: Test config-file-path input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git config and create a conventional commit
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          # Write a minimal conventional changelog config file
+          cat > /tmp/changelog-config.js << 'EOF'
+          'use strict'
+          module.exports = {
+            writerOpts: {
+              groupBy: 'type',
+              commitGroupsSort: 'title',
+              commitsSort: ['scope', 'subject']
+            }
+          }
+          EOF
+          # Create a conventional commit so the action has something to process
+          echo "config file path test" > test-config-file.txt
+          git add test-config-file.txt
+          git commit -m "feat: add config file path test feature"
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          git-push: "false"
+          skip-git-pull: "true"
+          skip-on-empty: "false"
+          skip-version-file: "true"
+          skip-commit: "true"
+          skip-tag: "true"
+          output-file: "false"
+          fallback-version: "1.0.0"
+          config-file-path: "/tmp/changelog-config.js"
+
+      - name: Assert action ran with config-file-path
+        env:
+          SKIPPED: ${{ steps.action.outputs.skipped }}
+          VERSION: ${{ steps.action.outputs.version }}
+          CHANGELOG: ${{ steps.action.outputs.changelog }}
+        run: |
+          echo "skipped: $SKIPPED"
+          echo "version: $VERSION"
+          echo "changelog: $CHANGELOG"
+          if [ "$SKIPPED" = "true" ]; then
+            echo "FAIL: action was skipped but a conventional commit was present"
+            exit 1
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "FAIL: expected version output to be set"
+            exit 1
+          fi
+          echo "PASS: action ran with config-file-path, version=$VERSION"
