@@ -1,6 +1,21 @@
 {
   "owner": "TriPSs",
   "repo": "conventional-changelog-action",
-  "version": "",
-  "url": "https://github.com/TriPSs/conventional-changelog-action"
+  "version": "v6.4.0",
+  "commit_sha": "ee43def3241429afddab215ba89090cbf64fb45c",
+  "url": "https://github.com/TriPSs/conventional-changelog-action",
+  "policy_sha": "374911c4be584df24e6da57af2d990570ef0f859",
+  "test_policy_sha": "843adf9e4b8f85d0c08b27b9d0b09dd094b54702",
+  "test_agent_version": "2",
+  "harden_agent_version": "2",
+  "node_artifact": {
+    "gcs_uri": "gs://patch-actions-node-artifacts/node-artifacts/TriPSs/conventional-changelog-action/v6.4.0/sha256-800d2ee9f44a1e3ed266e7a68f3e4de5de7c9313406092f11639e7facfcb4861.tar.gz",
+    "sha256": "800d2ee9f44a1e3ed266e7a68f3e4de5de7c9313406092f11639e7facfcb4861",
+    "size_bytes": 6229648
+  },
+  "dist_artifact": {
+    "gcs_uri": "gs://patch-actions-node-artifacts/dist-artifacts/TriPSs/conventional-changelog-action/v6.4.0/sha256-0fb57981e51fdb9854836513cd40233460a48a2c3c1634aad0d8f274cf8c6376.tar.gz",
+    "sha256": "0fb57981e51fdb9854836513cd40233460a48a2c3c1634aad0d8f274cf8c6376",
+    "size_bytes": 397412
+  }
 }
